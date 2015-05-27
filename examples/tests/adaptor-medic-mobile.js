@@ -9,7 +9,7 @@ var test_medic_mobile = function () {
 
   var a = adaptor.create('medic-mobile', {
     debug: true, pass: process.argv[2],
-    url: 'http://medic.local/medic/_design/medic/_rewrite'
+    url: 'http://localhost:5988/medic/_design/medic/_rewrite'
   });
 
   a.register_transmit_handler(function (_message, _callback) {

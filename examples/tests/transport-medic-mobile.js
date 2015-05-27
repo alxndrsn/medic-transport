@@ -6,12 +6,14 @@ var transport = require('../lib/transport');
  */
 
 var test_medic_mobile = function () {
+  var password = process.argv[2];
+  console.log("Password: " + password);
 
   var t = transport.create();
 
   t.load_adaptor('medic-mobile', {
-    debug: true, pass: process.argv[2],
-    url: 'http://medic.local/medic/_design/medic/_rewrite'
+    debug: true, pass: password,
+    url: 'http://localhost:5988/medic/_design/medic/_rewrite'
   });
 
   t.load_driver('gammu-json', {
