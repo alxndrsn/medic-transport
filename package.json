@@ -15,7 +15,8 @@
     "node-gammu-json": "0.x"
   },
   "devDependencies": {
-    "sinon": "1.14.x"
+    "sinon": "1.14.x",
+    "chai": "2.1.x"
   },
   "readme": "README.md",
   "repository": "http://github.com/browndav/medic-transport.git",
