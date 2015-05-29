@@ -167,6 +167,38 @@ describe('medic-mobile', function() {
       // when
       mm.start();
     });
+    it('should call transmit error handler when there are transmit errors', function(done) {
+      // setup
+      var calls = { get: {}, transmit_handler:[] };
+      var ALPHABET = 'abc';
+      sinon.stub(request, 'get', function(options, callback) {
+        var url = options.url;
+        calls.get[url] = calls.get[url] || [];
+        calls.get[url].push(options);
+        if(url === TEST_URL_ROOT + '/add') {
+          if(calls.get[url].length === 1) {
+            callback(null, {statusCode:200}, _json({
+              payload:{messages:[
+                  {uuid:0, message:'I will fail', to:'0'}]},
+              callback:{data:{docs:['asdf', '123']}, options:{protocol:'http', host:'localhost', port:5999, path:'/weird-callback'}}
+            }));
+          } else {
+            callback(null, {statusCode:200}, _json({}));
+          }
+        } else done(new Error("Unexpected GET request to: " + url));
+      });
+      var transmit_handler_called = false;
+      mm.register_transmit_handler(function(message, callback) {
+        callback(new Error("Manufactured error for testing"));
+      });
+      mm.register_error_handler(function(error) {
+        // This should be called when there was a transmit error
+        done();
+      });
+
+      // when
+      mm.start();
+    });
   });
   describe('.deliver()', function() {
     // To prevent noise in the tests, this adapter should never poll for
