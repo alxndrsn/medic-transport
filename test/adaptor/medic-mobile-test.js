@@ -18,7 +18,7 @@ describe('medic-mobile', function() {
         .yields(null, {statusCode:200}, _json({
           payload:{messages:[{uuid:'123-345-123', content:'a message', to:'recipient'}]}
         }));
-    done(); // TODO prob not required
+    return done(); // TODO prob not required
   });
 
   afterEach(function(done) {
@@ -27,7 +27,7 @@ describe('medic-mobile', function() {
     request.get.restore && request.get.restore();
     request.call.restore();
   //  setTimeout(done, 500);
-  done();
+    return done();
   });
 
   describe('receiving', function() {
@@ -38,7 +38,7 @@ describe('medic-mobile', function() {
     it('should poll by GETting /add', function(done) {
       sinon.stub(request, 'get', function(options) {
         assert.equal(options.url, TEST_URL_ROOT + '/add');
-        done();
+        return done();
       });
       mm.start();
     });
@@ -67,9 +67,9 @@ describe('medic-mobile', function() {
             assert.deepEqual(options, {url:'http://localhost:5999/weird-callback',
                 headers:{}, method:'GET', body:'{"docs":["asdf","123"]}'});
           } else {
-            done(new Error("Should only make one callback."));
+            return done(new Error("Should only make one callback."));
           }
-        } else done(new Error('Unexpected GET request to: ' + url));
+        } else return done(new Error('Unexpected GET request to: ' + url));
       });
       mm.register_transmit_handler(function(message, callback) { // TODO not reuiqred
         var actual, i;
@@ -83,12 +83,12 @@ describe('medic-mobile', function() {
             assert.ok(actual.timestamp);
             assert.notOk(actual.random_key);
           }
-          done();
+          return done();
         }
         callback(null, { status:'success', total_sent:calls.transmit_handler.length });
       });
       mm.register_error_handler(function(error) { // TODO not reuiqred
-        done(error);
+        return done(error);
       });
 
       // given
@@ -118,8 +118,8 @@ describe('medic-mobile', function() {
         } else if(url === CALLBACK_URL) {
           assert.deepEqual(options, {url:'http://localhost:5999/weird-callback',
               headers:{}, method:'GET', body:'{"docs":["asdf","123"]}'});
-          done();
-        } else done(new Error("Unexpected GET request to: " + url));
+          return done();
+        } else return done(new Error("Unexpected GET request to: " + url));
       });
       var transmit_handler_called = false;
       mm.register_transmit_handler(function(message, callback) {
@@ -127,7 +127,7 @@ describe('medic-mobile', function() {
         callback(false, { status:'failure' });
       });
       mm.register_error_handler(function(error) {
-        done(error);
+        return done(error);
       });
 
       // when
@@ -136,7 +136,7 @@ describe('medic-mobile', function() {
     it('should not call transmit handler when there are transmit errors', function(done) {
       // setup
       this.timeout(0); // disable mocha timeout
-      setTimeout(done, 500);
+      setTimeout(done, 1000);
 
       var calls = { get: {}, transmit_handler:[] };
       var ALPHABET = 'abc';
@@ -154,14 +154,11 @@ describe('medic-mobile', function() {
           } else {
             callback(null, {statusCode:200}, _json({}));
           }
-        } else done(new Error("Unexpected GET request to: " + url));
+        } else return done(new Error("Unexpected GET request to: " + url));
       });
       var transmit_handler_called = false;
       mm.register_transmit_handler(function(message, callback) {
         callback(new Error("Manufactured error for testing"));
-      });
-      mm.register_error_handler(function(error) {
-        done(error);
       });
 
       // when
@@ -185,15 +182,15 @@ describe('medic-mobile', function() {
           } else {
             callback(null, {statusCode:200}, _json({}));
           }
-        } else done(new Error("Unexpected GET request to: " + url));
+        } else return done(new Error("Unexpected GET request to: " + url));
       });
       var transmit_handler_called = false;
       mm.register_transmit_handler(function(message, callback) {
         callback(new Error("Manufactured error for testing"));
       });
       mm.register_error_handler(function(error) {
-        // This should be called when there was a transmit error
-        done();
+	assert.equal(error.toString(), "Manufactured error for testing");
+        return done();
       });
 
       // when
@@ -204,8 +201,8 @@ describe('medic-mobile', function() {
       var sendAttempts = 0;
       this.timeout(0);
       setTimeout(function() {
-	assert.equal(sendAttempts, 10);
-        done();
+        assert.equal(sendAttempts, 10);
+        return done();
       }, 1000);
       // setup
       var ALPHABET = 'abc';
@@ -223,13 +220,13 @@ describe('medic-mobile', function() {
           } else {
             callback(null, {statusCode:200}, _json({}));
           }
-	} else if(url === CALLBACK_URL) {
-	  // TODO why do we get a callback here?  The message should have failed...
-        } else done(new Error("Unexpected GET request to: " + url));
+        } else if(url === CALLBACK_URL) {
+          // TODO why do we get a callback here?  The message should have failed...
+        } else return done(new Error("Unexpected GET request to: " + url));
       });
       var transmit_handler_called = false;
       mm.register_transmit_handler(function(message, callback) {
-	++sendAttempts;
+        ++sendAttempts;
         callback(false, { status:'failure' });
       });
       mm.register_error_handler(function(error) {
@@ -256,7 +253,7 @@ describe('medic-mobile', function() {
     it('should call supplied callback if a good message is supplied', function(done) {
       // when
       mm.deliver(TEST_MESSAGE, function(error, response) {
-        done();
+        return done();
       });
     });
     it('should POST to /add', function(done) {
@@ -276,7 +273,7 @@ describe('medic-mobile', function() {
 
         assert.notOk(request.get.called);
 
-        done();
+        return done();
       });
     });
     it('should report success to the callback URL', function(done) {
@@ -286,7 +283,7 @@ describe('medic-mobile', function() {
         // for some reason, the body should equal the data we passed in
         // in the `callback` field of the `POST` to `/add`
         assert.deepEqual(request.body, '{"docs":["asdf","123"]}');
-        done();
+        return done();
       });
 
       // when
@@ -307,7 +304,7 @@ describe('medic-mobile', function() {
     it('should retry failed deliveries', function(done) {
       // TODO request a delivery, then have it fail, then make sure
       // that this is passed to the callback
-      done(new Error('TODO - please implement me!'));
+      return done(new Error('TODO - please implement me!'));
     });
   });
 });
