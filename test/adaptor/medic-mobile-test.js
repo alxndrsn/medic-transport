@@ -199,6 +199,9 @@ describe('medic-mobile', function() {
       // when
       mm.start();
     });
+    it('should retry messages which fail to transmit', function(done) {
+      done(new Error("TODO please implement me"));
+    });
   });
   describe('.deliver()', function() {
     // To prevent noise in the tests, this adapter should never poll for
