@@ -9,6 +9,8 @@ describe('medic-mobile', function() {
   var TEST_MESSAGE = {content:'', from:'', timestamp:''},
       TEST_URL_ROOT = 'http://localhost/nonsense',
       CALLBACK_URL = 'http://localhost:5999/weird-callback',
+      TEST_CALLBACK_OBJ = {url:'http://localhost:5999/weird-callback',
+	  headers:{}, method:'GET', body:'{"docs":["asdf","123"]}'};
       _json = JSON.stringify,
       mm = null;
 
@@ -24,6 +26,20 @@ describe('medic-mobile', function() {
     request.get.restore && request.get.restore();
   });
 
+  var error_and_done = function(error_message) {
+    return function() { return done(new Error(error_message)); };
+  }
+
+  var MESSAGES_TO_SEND_ONCE = [
+    { status:200, body:_json({
+	  payload:{messages:[
+	      {uuid:0, message:'a', to:'0', random_key:'should be ignored'},
+	      {uuid:1, message:'b', to:'1'},
+	      {uuid:2, message:'c', to:'2'}]},
+	  callback:{data:{docs:['asdf', '123']}, options:{protocol:'http', host:'localhost', port:5999, path:'/weird-callback'}}}) },
+    { status:200, body:_json({}) }
+  ];
+
   describe('receiving', function() {
     it('should poll by GETting /add', function(done) {
       sinon.stub(request, 'get', function(options) {
@@ -33,35 +49,19 @@ describe('medic-mobile', function() {
       mm.start();
     });
    it('should call transmit handler once for each message when messages are successfully sent', function(done) {
-      var calls = { get: {}, transmit_handler:[] };
-      var ALPHABET = 'abc';
-      sinon.stub(request, 'get', function(options, callback) {
-        var url = options.url;
-        calls.get[url] = calls.get[url] || [];
-        calls.get[url].push(options);
-        if(url === TEST_URL_ROOT + '/add') {
-          if(calls.get[url].length === 1) {
-            callback(null, {statusCode:200}, _json({
-              payload:{messages:[
-                  {uuid:0, message:'a', to:'0', random_key:'should be ignored'},
-                  {uuid:1, message:'b', to:'1'},
-                  {uuid:2, message:'c', to:'2'}]},
-              callback:{data:{docs:['asdf', '123']}, options:{protocol:'http', host:'localhost', port:5999, path:'/weird-callback'}}
-            }));
-          } else {
-            callback(null, {statusCode:200}, _json({}));
-          }
-        } else if(url === CALLBACK_URL) {
-          if(calls.get[url].length === 1) {
-            assert.deepEqual(options, {url:'http://localhost:5999/weird-callback',
-                headers:{}, method:'GET', body:'{"docs":["asdf","123"]}'});
-          } else {
-            return done(new Error("Should only make one callback."));
-          }
-        } else return done(new Error('Unexpected GET request to: ' + url));
+      mock_http({
+	'GET http://localhost/nonsense/add': MESSAGES_TO_SEND_ONCE,
+	'GET http://localhost:5999/weird-callback': [
+	  function(options) {
+	    assert.deepEqual(options, TEST_CALLBACK_OBJ);
+	  },
+	  error_and_done("Should only make one callback.")
+	]
       });
+
       mm.register_transmit_handler(function(message, callback) { // TODO not reuiqred
-        var actual, i;
+        var actual, i,
+            ALPHABET = 'abc';
         calls.transmit_handler.push(message);
         if(calls.transmit_handler.length === 3) {
           for(i=0; i<3; ++i) {
@@ -76,40 +76,21 @@ describe('medic-mobile', function() {
         }
         callback(null, { status:'success', total_sent:calls.transmit_handler.length });
       });
-      mm.register_error_handler(function(error) { // TODO not reuiqred
-        return done(error);
-      });
 
-      // given
-      // TODO define messages to transmit
-
-      // when
       mm.start();
     });
     it('should call transmit handler for messages marked "failure"', function(done) {
-      // setup
-      var calls = { get: {}, transmit_handler:[] };
-      var ALPHABET = 'abc';
-      sinon.stub(request, 'get', function(options, callback) {
-        var url = options.url;
-        calls.get[url] = calls.get[url] || [];
-        calls.get[url].push(options);
-        if(url === TEST_URL_ROOT + '/add') {
-          if(calls.get[url].length === 1) {
-            callback(null, {statusCode:200}, _json({
-              payload:{messages:[
-                  {uuid:0, message:'I will fail', to:'0'}]},
-              callback:{data:{docs:['asdf', '123']}, options:{protocol:'http', host:'localhost', port:5999, path:'/weird-callback'}}
-            }));
-          } else {
-            callback(null, {statusCode:200}, _json({}));
-          }
-        } else if(url === CALLBACK_URL) {
-          assert.deepEqual(options, {url:'http://localhost:5999/weird-callback',
-              headers:{}, method:'GET', body:'{"docs":["asdf","123"]}'});
-          return done();
-        } else return done(new Error("Unexpected GET request to: " + url));
+      mock_http({
+	'GET http://localhost/nonsense/add': MESSAGES_TO_SEND_ONCE,
+	'GET http://localhost:5999/weird-callback': [
+	  function(options) {
+	    assert.deepEqual(options, TEST_CALLBACK_OBJ);
+            return done();
+	  },
+	  error_and_done("Should only make one callback.")
+	]
       });
+
       var transmit_handler_called = false;
       mm.register_transmit_handler(function(message, callback) {
         //done(new Error("Should not call the transmit handler for a bad message!"));
@@ -123,28 +104,13 @@ describe('medic-mobile', function() {
       mm.start();
     });
     it('should not call transmit handler when there are transmit errors', function(done) {
-      // setup
+      mock_http({
+	'GET http://localhost/nonsense/add': MESSAGES_TO_SEND_ONCE
+      });
+
       this.timeout(0); // disable mocha timeout
       setTimeout(done, 1000);
 
-      var calls = { get: {}, transmit_handler:[] };
-      var ALPHABET = 'abc';
-      sinon.stub(request, 'get', function(options, callback) {
-        var url = options.url;
-        calls.get[url] = calls.get[url] || [];
-        calls.get[url].push(options);
-        if(url === TEST_URL_ROOT + '/add') {
-          if(calls.get[url].length === 1) {
-            callback(null, {statusCode:200}, _json({
-              payload:{messages:[
-                  {uuid:0, message:'I will fail', to:'0'}]},
-              callback:{data:{docs:['asdf', '123']}, options:{protocol:'http', host:'localhost', port:5999, path:'/weird-callback'}}
-            }));
-          } else {
-            callback(null, {statusCode:200}, _json({}));
-          }
-        } else return done(new Error("Unexpected GET request to: " + url));
-      });
       var transmit_handler_called = false;
       mm.register_transmit_handler(function(message, callback) {
         callback(new Error("Manufactured error for testing"));
@@ -154,25 +120,10 @@ describe('medic-mobile', function() {
       mm.start();
     });
     it('should call transmit error handler when there are transmit errors', function(done) {
-      // setup
-      var calls = { get: {}, transmit_handler:[] };
-      var ALPHABET = 'abc';
-      sinon.stub(request, 'get', function(options, callback) {
-        var url = options.url;
-        calls.get[url] = calls.get[url] || [];
-        calls.get[url].push(options);
-        if(url === TEST_URL_ROOT + '/add') {
-          if(calls.get[url].length === 1) {
-            callback(null, {statusCode:200}, _json({
-              payload:{messages:[
-                  {uuid:0, message:'I will fail', to:'0'}]},
-              callback:{data:{docs:['asdf', '123']}, options:{protocol:'http', host:'localhost', port:5999, path:'/weird-callback'}}
-            }));
-          } else {
-            callback(null, {statusCode:200}, _json({}));
-          }
-        } else return done(new Error("Unexpected GET request to: " + url));
+      mock_http({
+	'GET http://localhost/nonsense/add': MESSAGES_TO_SEND_ONCE
       });
+
       var transmit_handler_called = false;
       mm.register_transmit_handler(function(message, callback) {
         callback(new Error("Manufactured error for testing"));
@@ -182,53 +133,32 @@ describe('medic-mobile', function() {
         return done();
       });
 
-      // when
       mm.start();
     });
     it('should retry messages which return status `failure`', function(done) {
-      var calls = { get: {}, transmit_handler:[] };
+      mock_http({
+	  'GET http://localhost/nonsense/add': MESSAGES_TO_SEND_ONCE,
+	  'GET http://localhost:5899/weird-callback': error_and_done(
+	      'Should not have callback with failed messages.')
+      });
+
       var sendAttempts = 0;
       this.timeout(0);
       setTimeout(function() {
         assert.equal(sendAttempts, 10);
         return done();
       }, 1000);
-      // setup
-      var ALPHABET = 'abc';
-      sinon.stub(request, 'get', function(options, callback) {
-        var url = options.url;
-        calls.get[url] = calls.get[url] || [];
-        calls.get[url].push(options);
-        if(url === TEST_URL_ROOT + '/add') {
-          if(calls.get[url].length === 1) {
-            callback(null, {statusCode:200}, _json({
-              payload:{messages:[
-                  {uuid:0, message:'I will fail', to:'0'}]},
-              callback:{data:{docs:['asdf', '123']}, options:{protocol:'http', host:'localhost', port:5999, path:'/weird-callback'}}
-            }));
-          } else {
-            callback(null, {statusCode:200}, _json({}));
-          }
-        } else if(url === CALLBACK_URL) {
-          // TODO why do we get a callback here?  The message should have failed...
-	  done(new Error("Should not have callback with failed messages."));
-        } else return done(new Error("Unexpected GET request to: " + url));
-      });
+
       var transmit_handler_called = false;
       mm.register_transmit_handler(function(message, callback) {
         ++sendAttempts;
         callback(false, { status:'failure' });
       });
-      mm.register_error_handler(function(error) {
-      });
 
-      // when
       mm.start();
     });
   });
   describe('.deliver()', function() {
-    // To prevent noise in the tests, this adapter should never poll for
-    // messages to send.  We achieve this with a very high interval.
     beforeEach(function() {
       sinon.stub(request, 'post')
           .yields(null, {statusCode:200}, _json({
@@ -246,7 +176,9 @@ describe('medic-mobile', function() {
     });
     it('should POST to /add', function(done) {
       request.post.restore();
-      sinon.stub(request, 'post').yields(null, {statusCode:200}, _json({}));;
+
+      mock_http({ 'POST http://localhost/add': _json({}) });
+
       // when
       mm.deliver(TEST_MESSAGE, function(error, response) {
         if(error) return done(error);
