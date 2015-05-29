@@ -14,6 +14,8 @@ describe('medic-mobile', function() {
 
   beforeEach(function() {
     this.timeout(500);
+    mm = adaptor.create('medic-mobile',
+        {debug:true, pass:'secret', url:TEST_URL_ROOT, interval:100});
   });
 
   afterEach(function() {
@@ -23,10 +25,6 @@ describe('medic-mobile', function() {
   });
 
   describe('receiving', function() {
-    beforeEach(function() {
-      mm = adaptor.create('medic-mobile',
-          {debug:true, pass:'secret', url:TEST_URL_ROOT, interval:100});
-    });
     it('should poll by GETting /add', function(done) {
       sinon.stub(request, 'get', function(options) {
         assert.equal(options.url, TEST_URL_ROOT + '/add');
@@ -35,7 +33,6 @@ describe('medic-mobile', function() {
       mm.start();
     });
    it('should call transmit handler once for each message when messages are successfully sent', function(done) {
-      // setup
       var calls = { get: {}, transmit_handler:[] };
       var ALPHABET = 'abc';
       sinon.stub(request, 'get', function(options, callback) {
@@ -214,6 +211,7 @@ describe('medic-mobile', function() {
           }
         } else if(url === CALLBACK_URL) {
           // TODO why do we get a callback here?  The message should have failed...
+	  done(new Error("Should not have callback with failed messages."));
         } else return done(new Error("Unexpected GET request to: " + url));
       });
       var transmit_handler_called = false;
@@ -232,8 +230,6 @@ describe('medic-mobile', function() {
     // To prevent noise in the tests, this adapter should never poll for
     // messages to send.  We achieve this with a very high interval.
     beforeEach(function() {
-      mm = adaptor.create('medic-mobile',
-          {debug:true, pass:'secret', url:TEST_URL_ROOT, interval:100});
       sinon.stub(request, 'post')
           .yields(null, {statusCode:200}, _json({
               payload: {
