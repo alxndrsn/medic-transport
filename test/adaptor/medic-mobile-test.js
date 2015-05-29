@@ -189,7 +189,7 @@ describe('medic-mobile', function() {
         callback(new Error("Manufactured error for testing"));
       });
       mm.register_error_handler(function(error) {
-	assert.equal(error.toString(), "Manufactured error for testing");
+	assert.equal(error.toString(), "Error: Manufactured error for testing");
         return done();
       });
 
