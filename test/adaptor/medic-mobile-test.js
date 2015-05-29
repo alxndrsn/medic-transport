@@ -199,8 +199,44 @@ describe('medic-mobile', function() {
       // when
       mm.start();
     });
-    it('should retry messages which fail to transmit', function(done) {
-      done(new Error("TODO please implement me"));
+    it('should retry messages which return status `failure`', function(done) {
+      var calls = { get: {}, transmit_handler:[] };
+      var sendAttempts = 0;
+      this.timeout(0);
+      setTimeout(function() {
+	assert.equal(sendAttempts, 10);
+        done();
+      }, 1000);
+      // setup
+      var ALPHABET = 'abc';
+      sinon.stub(request, 'get', function(options, callback) {
+        var url = options.url;
+        calls.get[url] = calls.get[url] || [];
+        calls.get[url].push(options);
+        if(url === TEST_URL_ROOT + '/add') {
+          if(calls.get[url].length === 1) {
+            callback(null, {statusCode:200}, _json({
+              payload:{messages:[
+                  {uuid:0, message:'I will fail', to:'0'}]},
+              callback:{data:{docs:['asdf', '123']}, options:{protocol:'http', host:'localhost', port:5999, path:'/weird-callback'}}
+            }));
+          } else {
+            callback(null, {statusCode:200}, _json({}));
+          }
+	} else if(url === CALLBACK_URL) {
+	  // TODO why do we get a callback here?  The message should have failed...
+        } else done(new Error("Unexpected GET request to: " + url));
+      });
+      var transmit_handler_called = false;
+      mm.register_transmit_handler(function(message, callback) {
+	++sendAttempts;
+        callback(false, { status:'failure' });
+      });
+      mm.register_error_handler(function(error) {
+      });
+
+      // when
+      mm.start();
     });
   });
   describe('.deliver()', function() {
