@@ -13,6 +13,7 @@ describe('medic-mobile', function() {
       mm = null;
 
   beforeEach(function(done) {
+    this.timeout(500);
     sinon.stub(request, 'call') // FIXME this prob not necessary
         .yields(null, {statusCode:200}, _json({
           payload:{messages:[{uuid:'123-345-123', content:'a message', to:'recipient'}]}
@@ -31,7 +32,6 @@ describe('medic-mobile', function() {
 
   describe('receiving', function() {
     beforeEach(function() {
-      this.timeout(500);
       mm = adaptor.create('medic-mobile',
           {debug:true, pass:'secret', url:TEST_URL_ROOT, interval:100});
     });
@@ -204,7 +204,6 @@ describe('medic-mobile', function() {
     // To prevent noise in the tests, this adapter should never poll for
     // messages to send.  We achieve this with a very high interval.
     beforeEach(function() {
-      this.timeout(500);
       mm = adaptor.create('medic-mobile',
           {debug:true, pass:'secret', url:TEST_URL_ROOT, interval:100});
       sinon.stub(request, 'post')
