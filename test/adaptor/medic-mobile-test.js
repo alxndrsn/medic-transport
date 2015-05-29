@@ -12,22 +12,14 @@ describe('medic-mobile', function() {
       _json = JSON.stringify,
       mm = null;
 
-  beforeEach(function(done) {
+  beforeEach(function() {
     this.timeout(500);
-    sinon.stub(request, 'call') // FIXME this prob not necessary
-        .yields(null, {statusCode:200}, _json({
-          payload:{messages:[{uuid:'123-345-123', content:'a message', to:'recipient'}]}
-        }));
-    return done(); // TODO prob not required
   });
 
-  afterEach(function(done) {
+  afterEach(function() {
     if(mm) mm.stop();
     request.post.restore && request.post.restore();
     request.get.restore && request.get.restore();
-    request.call.restore();
-  //  setTimeout(done, 500);
-    return done();
   });
 
   describe('receiving', function() {
