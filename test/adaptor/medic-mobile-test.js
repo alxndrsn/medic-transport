@@ -48,7 +48,6 @@ describe('medic-mobile', function() {
       mm.start();
     });
    it('should call transmit handler once for each message when messages are successfully sent', function(done) {
-      this.timeout(600);
       mock_http.mock({
         'GET http://localhost/nonsense/add': MESSAGES_TO_SEND_ONCE,
         'GET http://localhost:5999/weird-callback': [
