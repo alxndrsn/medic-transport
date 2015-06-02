@@ -9,7 +9,6 @@ chai.config.includeStack = true;
 describe('medic-mobile', function() {
   var TEST_MESSAGE = {content:'', from:'', timestamp:''},
       TEST_URL_ROOT = 'http://localhost/nonsense',
-      CALLBACK_URL = 'http://localhost:5999/weird-callback',
       TEST_CALLBACK_OBJ = {url:'http://localhost:5999/weird-callback',
           headers:{}, method:'GET', body:'{"docs":["asdf","123"]}'};
       mm = null;
