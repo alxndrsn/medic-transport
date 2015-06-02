@@ -2,7 +2,8 @@ var chai = require('chai'),
     request = require('request'),
     sinon = require('sinon'),
     adaptor = require('../../lib/adaptor.js'),
-    assert = chai.assert;
+    assert = chai.assert,
+    mock_http = require('../request-mocker.js').mock_request;
 chai.config.includeStack = true;
 
 describe('medic-mobile', function() {
@@ -10,12 +11,10 @@ describe('medic-mobile', function() {
       TEST_URL_ROOT = 'http://localhost/nonsense',
       CALLBACK_URL = 'http://localhost:5999/weird-callback',
       TEST_CALLBACK_OBJ = {url:'http://localhost:5999/weird-callback',
-	  headers:{}, method:'GET', body:'{"docs":["asdf","123"]}'};
-      _json = JSON.stringify,
+          headers:{}, method:'GET', body:'{"docs":["asdf","123"]}'};
       mm = null;
 
   beforeEach(function() {
-    this.timeout(500);
     mm = adaptor.create('medic-mobile',
         {debug:true, pass:'secret', url:TEST_URL_ROOT, interval:100});
   });
@@ -26,18 +25,18 @@ describe('medic-mobile', function() {
     request.get.restore && request.get.restore();
   });
 
-  var error_and_done = function(error_message) {
+  var error_and_done = function(done, error_message) {
     return function() { return done(new Error(error_message)); };
   }
 
   var MESSAGES_TO_SEND_ONCE = [
-    { status:200, body:_json({
-	  payload:{messages:[
-	      {uuid:0, message:'a', to:'0', random_key:'should be ignored'},
-	      {uuid:1, message:'b', to:'1'},
-	      {uuid:2, message:'c', to:'2'}]},
-	  callback:{data:{docs:['asdf', '123']}, options:{protocol:'http', host:'localhost', port:5999, path:'/weird-callback'}}}) },
-    { status:200, body:_json({}) }
+    {
+          payload:{messages:[
+              {uuid:0, message:'a', to:'0', random_key:'should be ignored'},
+              {uuid:1, message:'b', to:'1'},
+              {uuid:2, message:'c', to:'2'}]},
+          callback:{data:{docs:['asdf', '123']}, options:{protocol:'http', host:'localhost', port:5999, path:'/weird-callback'}}},
+    {}
   ];
 
   describe('receiving', function() {
@@ -49,14 +48,14 @@ describe('medic-mobile', function() {
       mm.start();
     });
    it('should call transmit handler once for each message when messages are successfully sent', function(done) {
-      mock_http({
-	'GET http://localhost/nonsense/add': MESSAGES_TO_SEND_ONCE,
-	'GET http://localhost:5999/weird-callback': [
-	  function(options) {
-	    assert.deepEqual(options, TEST_CALLBACK_OBJ);
-	  },
-	  error_and_done("Should only make one callback.")
-	]
+      mock_http.mock({
+        'GET http://localhost/nonsense/add': MESSAGES_TO_SEND_ONCE,
+        'GET http://localhost:5999/weird-callback': [
+          function(options) {
+            assert.deepEqual(options, TEST_CALLBACK_OBJ);
+          },
+          error_and_done(done, "Should only make one callback.")
+        ]
       });
 
       mm.register_transmit_handler(function(message, callback) { // TODO not reuiqred
@@ -80,15 +79,15 @@ describe('medic-mobile', function() {
       mm.start();
     });
     it('should call transmit handler for messages marked "failure"', function(done) {
-      mock_http({
-	'GET http://localhost/nonsense/add': MESSAGES_TO_SEND_ONCE,
-	'GET http://localhost:5999/weird-callback': [
-	  function(options) {
-	    assert.deepEqual(options, TEST_CALLBACK_OBJ);
+      mock_http.mock({
+        'GET http://localhost/nonsense/add': MESSAGES_TO_SEND_ONCE,
+        'GET http://localhost:5999/weird-callback': [
+          function(options) {
+            assert.deepEqual(options, TEST_CALLBACK_OBJ);
             return done();
-	  },
-	  error_and_done("Should only make one callback.")
-	]
+          },
+          error_and_done(done, "Should only make one callback.")
+        ]
       });
 
       var transmit_handler_called = false;
@@ -104,8 +103,8 @@ describe('medic-mobile', function() {
       mm.start();
     });
     it('should not call transmit handler when there are transmit errors', function(done) {
-      mock_http({
-	'GET http://localhost/nonsense/add': MESSAGES_TO_SEND_ONCE
+      mock_http.mock({
+        'GET http://localhost/nonsense/add': MESSAGES_TO_SEND_ONCE
       });
 
       this.timeout(0); // disable mocha timeout
@@ -120,8 +119,8 @@ describe('medic-mobile', function() {
       mm.start();
     });
     it('should call transmit error handler when there are transmit errors', function(done) {
-      mock_http({
-	'GET http://localhost/nonsense/add': MESSAGES_TO_SEND_ONCE
+      mock_http.mock({
+        'GET http://localhost/nonsense/add': MESSAGES_TO_SEND_ONCE
       });
 
       var transmit_handler_called = false;
@@ -129,17 +128,17 @@ describe('medic-mobile', function() {
         callback(new Error("Manufactured error for testing"));
       });
       mm.register_error_handler(function(error) {
-	assert.equal(error.toString(), "Error: Manufactured error for testing");
+        assert.equal(error.toString(), "Error: Manufactured error for testing");
         return done();
       });
 
       mm.start();
     });
     it('should retry messages which return status `failure`', function(done) {
-      mock_http({
-	  'GET http://localhost/nonsense/add': MESSAGES_TO_SEND_ONCE,
-	  'GET http://localhost:5899/weird-callback': error_and_done(
-	      'Should not have callback with failed messages.')
+      mock_http.mock({
+          'GET http://localhost/nonsense/add': MESSAGES_TO_SEND_ONCE,
+          'GET http://localhost:5899/weird-callback': error_and_done(done,
+              'Should not have callback with failed messages.')
       });
 
       var sendAttempts = 0;
@@ -161,7 +160,7 @@ describe('medic-mobile', function() {
   describe('.deliver()', function() {
     beforeEach(function() {
       sinon.stub(request, 'post')
-          .yields(null, {statusCode:200}, _json({
+          .yields(null, {statusCode:200}, JSON.stringify({
               payload: {
               messages:[{}, {}, {}]
             },
@@ -177,7 +176,7 @@ describe('medic-mobile', function() {
     it('should POST to /add', function(done) {
       request.post.restore();
 
-      mock_http({ 'POST http://localhost/add': _json({}) });
+      mock_http.mock({ 'POST http://localhost/add': {} });
 
       // when
       mm.deliver(TEST_MESSAGE, function(error, response) {
