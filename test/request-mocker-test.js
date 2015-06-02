@@ -75,11 +75,67 @@ describe('mocker', function() {
     });
 
     // when
+    request.get('http://example.com/path', function() {});
+  });
+  it('should provide request details to function handlers', function(done) {
+    // given
+    mock_request.mock({
+      'GET http://example.com/path': function(url, options) {
+        assert.equal(url, 'http://example.com/path');
+        assert.ok(options);
+        done();
+      }
+    });
+
+    // when
+    request.get('http://example.com/path');
+  });
+  it('should provide support for POST requests', function(done) {
+    // given
+    mock_request.mock({
+      'POST http://example.com/path': [{content:true}]
+    });
+
+    // when
+    request.post('http://example.com/path', function(err, resp, body) {
+      // then
+      assert.equal(err, null);
+      assert.deepEqual(body, {content:true});
+      done();
+    });
+  });
+  it('should not be confused between config for GET and POST', function(done) {
+    // given
+    mock_request.mock({
+      'POST http://example.com/path': [{content:true}]
+    });
+
+    // when
     request.get('http://example.com/path', function(err, resp, body) {
-      console.log('In response handler with err=' + err +
-          ' resp=' + resp +
-          ' body=' + body);
-//      done(new Error('Should not have got this far!'));
+      // then
+      assert.ok(err);
+      done();
+    });
+  });
+  it('should support requests made via `request()`', function(done) {
+    // given
+    mock_request.mock({
+      'GET http://example.com/path': [{content:true}]
+    });
+
+    // when
+    request({url:'http://example.com/path'},
+        function(err, resp, body) {
+      assert.equal(err, null);
+      assert.equal(body.content, true);
+      done();
+    });
+    // and
+    request({method:'POST', url:'http://example.com/path'},
+        function(err, resp, body) {
+      assert.ok(err);
+      assert.notEqual(body.content, true);
+      done();
     });
   });
 });
