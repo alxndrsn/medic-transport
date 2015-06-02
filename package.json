@@ -4,7 +4,7 @@
   "description": "An SMS transport API for Medic Mobile's mHealth platform",
   "main": "lib/factory.js",
   "scripts": {
-    "test": "mocha test/adaptor/medic-mobile-test.js"
+    "test": "mocha test/** --timeout 200"
   },
   "dependencies": {
     "async": "0.x",
