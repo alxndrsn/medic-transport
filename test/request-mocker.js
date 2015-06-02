@@ -1,7 +1,7 @@
 var request = require('request'),
     _ = require('underscore'),
     sinon = require('sinon'),
-    DEBUG = true,
+    DEBUG = false,
     AUTOJSON = false;
 
 "use strict";
@@ -100,7 +100,6 @@ exports.mock_request = (function() {
       if(DEBUG) console.log('  verb: ' + verb + ', url: ' + url);
       map[verb][url] = { count:0, actions:resp };
     });
-    console.log('Generated map: ' + JSON.stringify(map));
     stubs_for(['get', 'post']);
     // TODO need to stub the global `request()` method
   };

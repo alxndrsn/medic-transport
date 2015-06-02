@@ -53,8 +53,6 @@ describe('medic-mobile', function() {
         'GET http://localhost/nonsense/add': MESSAGES_TO_SEND_ONCE,
         'GET http://localhost:5999/weird-callback': [
           function(url, options) {
-	    console.log('Generating response to GET at ' + url +
-	        ' with options: ' + options);
             assert.deepEqual(options, TEST_CALLBACK_OBJ);
           },
           error_and_done(done, "Should only make one callback.")
@@ -63,7 +61,6 @@ describe('medic-mobile', function() {
 
       var transmit_handler_calls = [];
       mm.register_transmit_handler(function(message, callback) { // TODO not reuiqred
-        console.log('Tranmit handler fired...');
         var actual, i,
             ALPHABET = 'abc';
         transmit_handler_calls.push(message);
