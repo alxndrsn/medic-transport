@@ -97,6 +97,9 @@ exports.mock_request = (function() {
       var pieces = req.split(' ', 2),
           verb = pieces[0].toUpperCase(),
           url = pieces[1];
+      if(!verb || !url) {
+        throw new Error('Both VERB and URL to mock.  Supplied:' + req);
+      }
       if(DEBUG) console.log('  verb: ' + verb + ', url: ' + url);
       map[verb][url] = { count:0, actions:resp };
     });
