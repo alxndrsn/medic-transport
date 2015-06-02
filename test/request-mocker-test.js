@@ -2,7 +2,8 @@ var chai = require('chai'),
     assert = chai.assert,
     request = require('request'),
     sinon = require('sinon'),
-    mock_request = require('./request-mocker.js').mock_request;
+    mock_request = require('./request-mocker.js').mock_request,
+    AUTOJSON = false;
 
 describe('mocker', function() {
   beforeEach(function() {
@@ -23,7 +24,11 @@ describe('mocker', function() {
     request.get('http://example.com/path', function(err, resp, body) {
       // then
       assert.equal(err, null);
-      assert.deepEqual(body, {content:true});
+      if(AUTOJSON) {
+        assert.deepEqual(body, {content:true});
+      } else {
+        assert.equal(body, '{"content":true}');
+      }
       done();
     });
   });
@@ -36,22 +41,38 @@ describe('mocker', function() {
     // when
     request.get('http://example.com/path', function(err, resp, body) {
       // then
-      assert.deepEqual(body.content, 1);
+      if(AUTOJSON) {
+        assert.deepEqual(body.content, 1);
+      } else {
+        assert.equal(body, '{"content":1}');
+      }
     });
     // and
     request.get('http://example.com/path', function(err, resp, body) {
       // then
-      assert.deepEqual(body.content, 2);
+      if(AUTOJSON) {
+        assert.deepEqual(body.content, 2);
+      } else {
+        assert.equal(body, '{"content":2}');
+      }
     });
     // and
     request.get('http://example.com/path', function(err, resp, body) {
       // then
-      assert.deepEqual(body.content, 'everything else');
+      if(AUTOJSON) {
+        assert.deepEqual(body.content, 'everything else');
+      } else {
+        assert.equal(body, '{"content":"everything else"}');
+      }
     });
     // and
     request.get('http://example.com/path', function(err, resp, body) {
       // then
-      assert.deepEqual(body.content, 'everything else');
+      if(AUTOJSON) {
+        assert.deepEqual(body.content, 'everything else');
+      } else {
+        assert.equal(body, '{"content":"everything else"}');
+      }
       done();
     });
   });
@@ -100,7 +121,11 @@ describe('mocker', function() {
     request.post('http://example.com/path', function(err, resp, body) {
       // then
       assert.equal(err, null);
-      assert.deepEqual(body, {content:true});
+      if(AUTOJSON) {
+        assert.deepEqual(body, {content:true});
+      } else {
+        assert.equal(body, '{"content":true}');
+      }
       done();
     });
   });
@@ -117,7 +142,25 @@ describe('mocker', function() {
       done();
     });
   });
-  it('should support requests made via `request()`', function(done) {
+  it('should accept URLs passed in `options` object', function(done) {
+    // given
+    mock_request.mock({
+      'GET http://example.com/path': [{content:true}]
+    });
+
+    // when
+    request.get({url:'http://example.com/path'}, function(err, resp, body) {
+      // then
+      assert.equal(err, null);
+      if(AUTOJSON) {
+        assert.equal(body.content, true);
+      } else {
+        assert.equal(body, '{"content":true}');
+      }
+      done();
+    });
+  });
+/*  it('should support requests made via `request()`', function(done) {
     // given
     mock_request.mock({
       'GET http://example.com/path': [{content:true}]
@@ -137,5 +180,5 @@ describe('mocker', function() {
       assert.notEqual(body.content, true);
       done();
     });
-  });
+  });*/
 });
