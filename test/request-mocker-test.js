@@ -160,6 +160,29 @@ describe('mocker', function() {
       done();
     });
   });
+  it('should count requests', function() {
+    // given
+    mock_request.mock({
+      'GET http://once': {},
+      'GET http://twice': {},
+      'GET http://thrice': {}
+    });
+
+    // when
+    request.get('http://once');
+
+    request.get('http://twice');
+    request.get('http://twice');
+
+    request.get('http://thrice');
+    request.get('http://thrice');
+    request.get('http://thrice');
+
+    // then
+    assert.equal(mock_request.handlers.GET['http://once'].count, 1);
+    assert.equal(mock_request.handlers.GET['http://twice'].count, 2);
+    assert.equal(mock_request.handlers.GET['http://thrice'].count, 3);
+  });
 /*  it('should support requests made via `request()`', function(done) {
     // given
     mock_request.mock({

@@ -6,8 +6,7 @@ var request = require('request'),
 
 "use strict";
 exports.mock_request = (function() {
-  var map,
-  handle_action = function(handler, url, options, callback) {
+  var handle_action = function(handler, url, options, callback) {
     if(DEBUG) console.log('handle_action() :: url=' + url);
 
     var hit_count = handler.count++,
@@ -41,6 +40,7 @@ exports.mock_request = (function() {
     }
   },
   stubs_for = function(verbs) {
+    var self = this;
     _.each(verbs, function(verb) {
       var VERB = verb.toUpperCase();
       sinon.stub(request, verb, function(url, options, callback) {
@@ -74,7 +74,7 @@ exports.mock_request = (function() {
             ' options=' + JSON.stringify(options) +
             ' callback=' + JSON.stringify(callback));
 
-        var handler = map[VERB][url];
+        var handler = self.handlers[VERB][url];
         if(!handler) {
           callback(new Error('No mock found for ' + VERB + ' at: ' + url));
           return;
@@ -88,10 +88,11 @@ exports.mock_request = (function() {
   this.restore = function() {
     request.get.restore && request.get.restore();
     request.post.restore && request.post.restore();
-    map = {};
+    this.handlers = {};
   };
   this.mock = function(behaviour) {
-    map = { GET:{}, POST:{} };
+    var self = this;
+    self.handlers = { GET:{}, POST:{} };
     _.mapObject(behaviour, function(resp, req) {
       if(DEBUG) console.log('Mapping: ' + req + ' -> ' + resp);
       var pieces = req.split(' ', 2),
@@ -101,7 +102,7 @@ exports.mock_request = (function() {
         throw new Error('Both VERB and URL to mock.  Supplied:' + req);
       }
       if(DEBUG) console.log('  verb: ' + verb + ', url: ' + url);
-      map[verb][url] = { count:0, actions:resp };
+      self.handlers[verb][url] = { count:0, actions:resp };
     });
     stubs_for(['get', 'post']);
     // TODO need to stub the global `request()` method

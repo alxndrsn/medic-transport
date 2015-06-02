@@ -46,7 +46,10 @@ describe('medic-mobile', function() {
       });
       mm.start();
     });
-   it('should call transmit handler once for each message when messages are successfully sent', function(done) {
+    it('should call transmit handler once for each message when all sent ok',
+        function(done) {
+      this.timeout(0);
+
       mock_http.mock({
         'GET http://localhost/nonsense/add': MESSAGES_TO_SEND_ONCE,
         'GET http://localhost:5999/weird-callback': [
@@ -71,12 +74,16 @@ describe('medic-mobile', function() {
             assert.ok(actual.timestamp);
             assert.notOk(actual.random_key);
           }
-          return done();
         }
         callback(null, { status:'success', total_sent:transmit_handler_calls.length });
       });
 
       mm.start();
+
+      setTimeout(function() {
+        assert.equal(mock_http.handlers.GET['http://localhost:5999/weird-callback'].count, 1);
+        done();
+      }, 200);
     });
     it('should call transmit handler for messages marked "failure"', function(done) {
       mock_http.mock({
@@ -103,59 +110,58 @@ describe('medic-mobile', function() {
       mm.start();
     });
     it('should not call transmit handler when there are transmit errors', function(done) {
+      // setup
+      this.timeout(0);
       mock_http.mock({
         'GET http://localhost/nonsense/add': MESSAGES_TO_SEND_ONCE
       });
-
-      this.timeout(0); // disable mocha timeout
-      setTimeout(done, 200);
-
-      var transmit_handler_called = false;
       mm.register_transmit_handler(function(message, callback) {
         callback(new Error("Manufactured error for testing"));
       });
 
       // when
       mm.start();
+
+      // then
+      setTimeout(done, 200);
     });
     it('should call transmit error handler when there are transmit errors', function(done) {
+      // setup
+      this.timeout(0);
       mock_http.mock({
         'GET http://localhost/nonsense/add': MESSAGES_TO_SEND_ONCE
       });
-
-      var transmit_handler_called = false;
       mm.register_transmit_handler(function(message, callback) {
         callback(new Error("Manufactured error for testing"));
       });
       var error_handler_call_count = 0;
       mm.register_error_handler(function(error) {
         assert.equal(error.toString(), "Error: Manufactured error for testing");
-        if(++error_handler_call_count === 1) {
-          // TODO this currently gets called once for every failed message
-          // please determine if this is correct behaviour!
-          return done();
-        }
+        ++error_handler_call_count;
       });
 
+      // when
       mm.start();
+
+      // then
+      setTimeout(function() {
+        assert.equal(error_handler_call_count, 3);
+        done();
+      }, 200);
     });
     // TODO it's actually expected that messages which returned status
     // `failure` *should* be retried...but that's not what the current
     // implementation does.  So this test is there to ensure the
     // behaviour is not inadvertantly changed.
     it('should not retry messages which return status `failure`', function(done) {
+      // setup
+      this.timeout(0);
       mock_http.mock({
           'GET http://localhost/nonsense/add': MESSAGES_TO_SEND_ONCE,
           'GET http://localhost:5899/weird-callback': error_and_done(done,
               'Should not have callback with failed messages.')
       });
-
       var sendAttempts = 0;
-      this.timeout(0);
-      setTimeout(function() {
-        assert.equal(sendAttempts, 3);
-        return done();
-      }, 200);
 
       var transmit_handler_called = false;
       mm.register_transmit_handler(function(message, callback) {
@@ -163,13 +169,21 @@ describe('medic-mobile', function() {
         callback(false, { status:'failure' });
       });
 
+      // when
       mm.start();
+
+      // then
+      setTimeout(function() {
+        assert.equal(sendAttempts, 3);
+        return done();
+      }, 200);
     });
   });
   describe('.deliver()', function() {
     it('should call supplied callback if a good message is supplied', function(done) {
       // when
       mm.deliver(TEST_MESSAGE, function(error, response) {
+        // then
         return done();
       });
     });
@@ -179,17 +193,15 @@ describe('medic-mobile', function() {
       // when
       mm.deliver(TEST_MESSAGE, function(error, response) {
         if(error) return done(error);
+
+        // then
         assert.deepEqual(response, {total_sent:1, status:'success'});
 
         var args = request.post.firstCall.args;
         assert.equal(args.length, 2);
         assert.equal(args[0].url, TEST_URL_ROOT + '/add');
-
-        // FIXME at the moment, we appear to make two identical calls to '/add'
         assert.equal(request.post.callCount, 1);
-
         assert.notOk(request.get.called);
-
         return done();
       });
     });
@@ -214,18 +226,45 @@ describe('medic-mobile', function() {
             }
       });
 
+      mm.deliver(TEST_MESSAGE, function(error, response) {});
+    });
+    it('should report success to the callback URL once for each batch', function(done) {
+      // setup
+      this.timeout(0);
+      mock_http.mock({
+        'POST http://localhost/nonsense/add': {
+            payload: {
+              messages:[{}, {}, {}]
+            },
+            callback: { data:
+                { docs:['asdf', '123'] },
+                options:{protocol:'http', host:'localhost', port:5999,
+                    path:'/weird-callback'} } },
+        'GET http://localhost:5999/weird-callback':
+            function(request, options) {
+              assert.equal(request,
+                  'http://localhost:5999/weird-callback');
+              // for some reason, the body should equal the data we passed
+              // in the `callback` field of the `POST` to `/add`
+              assert.equal(options.body, '{"docs":["asdf","123"]}');
+            }
+      });
+
       // when
       mm.deliver(TEST_MESSAGE, function(error, response) {});
+
+      // then
+      setTimeout(function() {
+        assert.equal(mock_http.handlers.GET['http://localhost:5999/weird-callback'].count, 1);
+        done();
+      }, 200);
     });
     // TODO we probably do want to be retrying these, but the current
     // implementation does not.
     it('should not retry failed deliveries', function(done) {
+      // setup
       var deliver_callback_count = 0;
       this.timeout(0);
-      setTimeout(function() {
-        assert.equal(deliver_callback_count, 1);
-        done();
-      }, 200);
       mock_http.mock({});
 
       // when
@@ -233,6 +272,12 @@ describe('medic-mobile', function() {
         ++deliver_callback_count;
         assert.ok(error);
       });
+
+      // then
+      setTimeout(function() {
+        assert.equal(deliver_callback_count, 1);
+        done();
+      }, 200);
     });
   });
 });
