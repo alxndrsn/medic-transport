@@ -2,7 +2,8 @@ var chai = require('chai'),
     assert = chai.assert,
     adaptor = require('../../lib/adaptor.js'),
     request = require('request'),
-    mock_http = require('../request-mocker.js').mock_request;
+    mock_http = require('../request-mocker.js').mock_request,
+    AUTOJSON = false;
 
 describe('medic-webapp', function() {
   var adapter, mock_webapp,
@@ -15,15 +16,23 @@ describe('medic-webapp', function() {
     adapter = adaptor.create('medic-webapp',
         {debug:true, pass:'secret', url:TEST_URL_ROOT, interval:100});
     mock_webapp = (function() {
-      this.poll_count = function() {
+      var self = this,
+          behaviour = {},
+          pending_message_queue = [];
+
+      self.poll_count = function() {
         return mock_http.handlers.GET[PENDING_URL].count;
       };
+      self.push_pending_messages = function(messages) {
+        pending_message_queue.push(messages);
+      };
 
-      var behaviour = {};
-      behaviour['GET ' + PENDING_URL] = function() {};
+      behaviour['GET ' + PENDING_URL] = function() {
+        return pending_message_queue.shift() || [];
+      };
       mock_http.mock(behaviour);
 
-      return this;
+      return self;
     }());
   });
 
@@ -56,6 +65,67 @@ describe('medic-webapp', function() {
       assert.equal(mock_webapp.poll_count(), 0);
       request.get(PENDING_URL);
       assert.equal(mock_webapp.poll_count(), 1);
+    });
+    it('should provide empty list if no messages are pending', function(done) {
+      // when
+      request.get(PENDING_URL, function(err, options, body) {
+        if(!AUTOJSON) body = JSON.parse(body);
+        // then
+        assert.deepEqual(body, []);
+        done();
+      });
+    });
+    it('should provide a message from the pending message queue once', function(done) {
+      // setup
+      mock_webapp.push_pending_messages([
+          { to:'+1234567890', message:'hello' }]);
+
+      // when
+      request.get(PENDING_URL, function(err, options, body) {
+        if(!AUTOJSON) body = JSON.parse(body);
+
+        // then
+        assert.equal(body.length, 1);
+        assert.equal(body[0].to, '+1234567890');
+        assert.equal(body[0].message, 'hello');
+
+        // when
+        request.get(PENDING_URL, function(err, options, body) {
+          if(!AUTOJSON) body = JSON.parse(body);
+
+          // then
+          assert.deepEqual(body, []);
+          done();
+        });
+      });
+    });
+    it('should provide messages from the pending message queue', function(done) {
+      // setup
+      mock_webapp.push_pending_messages([
+          { to:'+1234567890', message:'hello' },
+          { to:'+1111111111', message:'aaaaa' }]);
+
+      // when
+      request.get(PENDING_URL, function(err, options, body) {
+        if(!AUTOJSON) body = JSON.parse(body);
+
+        // then
+        assert.equal(body.length, 2);
+        assert.equal(body[0].to, '+1234567890');
+        assert.equal(body[0].message, 'hello');
+
+        assert.equal(body[1].to, '+1111111111');
+        assert.equal(body[1].message, 'aaaaa');
+
+        // when
+        request.get(PENDING_URL, function(err, options, body) {
+          if(!AUTOJSON) body = JSON.parse(body);
+
+          // then
+          assert.deepEqual(body, []);
+          done();
+        });
+      });
     });
   });
 
