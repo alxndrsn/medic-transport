@@ -20,8 +20,7 @@ describe('medic-mobile', function() {
 
   afterEach(function() {
     if(mm) mm.stop();
-    request.post.restore && request.post.restore();
-    request.get.restore && request.get.restore();
+    mock_http.restore();
   });
 
   var error_and_done = function(done, error_message) {
