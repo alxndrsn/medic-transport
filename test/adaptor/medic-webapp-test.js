@@ -10,7 +10,9 @@ describe('medic-webapp', function() {
       TEST_URL_ROOT = 'http://localhost/nonsense',
       TODO = function(done) { done(new Error('Not Yet Implemented')); },
       PENDING_PATH = '/api/v1/messages?state=pending',
-      PENDING_URL = TEST_URL_ROOT + PENDING_PATH;
+      PENDING_URL = TEST_URL_ROOT + PENDING_PATH,
+      register_noop_transmit_handler = function() {
+        adapter.register_transmit_handler(function() {}); };
 
   beforeEach(function() {
     adapter = adaptor.create('medic-webapp',
@@ -28,7 +30,8 @@ describe('medic-webapp', function() {
       };
 
       behaviour['GET ' + PENDING_URL] = function() {
-        return pending_message_queue.shift() || [];
+        var next = pending_message_queue.shift() || [];
+        return _.isArray(next) ? next : [next];
       };
       mock_http.mock(behaviour);
 
@@ -77,8 +80,7 @@ describe('medic-webapp', function() {
     });
     it('should provide a message from the pending message queue once', function(done) {
       // setup
-      mock_webapp.push_pending_messages([
-          { to:'+1234567890', message:'hello' }]);
+      mock_webapp.push_pending_messages({ to:'+1234567890', message:'hello' });
 
       // when
       request.get(PENDING_URL, function(err, options, body) {
@@ -129,12 +131,25 @@ describe('medic-webapp', function() {
     });
   });
 
+  describe('initialize', function() {
+    it('should fail if no transmit handler is set', function() {
+      try {
+        adapter.start();
+        assert.ok(false);
+      } catch(err) {
+        assert.equal(err.toString(), 'Error: No transmit handler set.');
+      }
+    });
+  });
+
   describe('mobile-originating', function() {
     describe('when not started', function() {
       it('should do nothing', function(done) {
         this.timeout(0);
-        adapter.start(); // TODO once the adapter is implemented, this test should fail until this line is removed
-        setTimeout(done, 500);
+        setTimeout(function() {
+          assert.equal(mock_webapp.poll_count(), 0);
+          done();
+        }, 200);
       });
     });
     describe('when started', function() {
@@ -145,6 +160,7 @@ describe('medic-webapp', function() {
           assert.ok(mock_webapp.poll_count() > 0);
           done();
         }, 200);
+        register_noop_transmit_handler();
 
         // when
         adapter.start();
@@ -155,10 +171,11 @@ describe('medic-webapp', function() {
 
         // then
         setTimeout(function() {
-          assert.ok(mock_webapp.poll_count() >= 4);
-          assert.ok(mock_webapp.poll_count() <= 6);
+          assert.isAbove(mock_webapp.poll_count(), 3);
+          assert.isBelow(mock_webapp.poll_count(), 7);
           done();
         }, 500);
+        register_noop_transmit_handler();
 
         // when
         adapter.start();
@@ -166,6 +183,7 @@ describe('medic-webapp', function() {
       it('should no longer poll when stopped', function(done) {
         // setup
         this.timeout(0);
+        register_noop_transmit_handler();
 
         // then
         setTimeout(function() {
@@ -182,13 +200,36 @@ describe('medic-webapp', function() {
         adapter.start();
       });
     });
-    describe('when ' + PENDING_PATH + ' provides a message', function() {
-      it('should be transmitted', function(done) {
+    describe('when ' + PENDING_PATH + ' provides bad JSON', function() {
+      it('should call the callback with a suitable error', function(done) {
         TODO(done);
+      });
+    });
+    describe('when ' + PENDING_PATH + ' provides a message', function() {
+      it('should be passed to the transmit handler', function(done) {
+        // setup
+        mock_webapp.push_pending_messages({ to:'+123', message:'hi' });
+
+        adapter.register_transmit_handler(function(message, tx_result) {
+          // then
+          assert.equal(message.to, '+123');
+          assert.equal(message.content, 'hi');
+          // TODO we should really be supplying uuid and timestamp in our
+          // original messages.  Perhaps it's safe not to test them?
+          //assert.ok(message.uuid);
+          //assert.ok(message.timestamp);
+          done();
+        });
+
+        // when
+        adapter.start();
       });
     });
     describe('when ' + PENDING_PATH + ' provides messages', function() {
       it('should transmit all of them', function(done) {
+        TODO(done);
+      });
+      it('should not stack overflow even with many messages', function(done) {
         TODO(done);
       });
     });
