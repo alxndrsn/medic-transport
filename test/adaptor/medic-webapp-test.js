@@ -9,6 +9,8 @@ describe('medic-webapp', function() {
   var adapter, mock_webapp,
       TEST_URL_ROOT = 'http://localhost/nonsense',
       TODO = function(done) { done(new Error('Not Yet Implemented')); },
+      MESSAGES_PATH = '/api/v1/messages',
+      MESSAGES_URL = TEST_URL_ROOT + '/api/v1/messages',
       PENDING_PATH = '/api/v1/messages?state=pending',
       PENDING_URL = TEST_URL_ROOT + PENDING_PATH,
       STATE_PATH = '/api/v1/messages/state/',
@@ -25,6 +27,7 @@ describe('medic-webapp', function() {
           pending_message_queue = [],
           ID_MATCHER = new RegExp(/\/([^\/]*)$/);
       self.state_updates = {};
+      self.received = [];
 
       self.poll_count = function() {
         return mock_http.handlers.GET[PENDING_URL].count;
@@ -42,6 +45,9 @@ describe('medic-webapp', function() {
             state = req.state;
         state_updates[id] = state_updates[id] || [];
         state_updates[id].push(state);
+      };
+      behaviour['POST ' + MESSAGES_URL] = function(url, body) {
+        self.received.push(body);
       };
       mock_http.mock(behaviour);
 
@@ -156,6 +162,30 @@ describe('medic-webapp', function() {
                   done();
                 });
           });
+    });
+    it('should record saved messages', function(done) {
+      assert.deepEqual(mock_webapp.received, []);
+
+      // when
+      request.post(TEST_URL_ROOT + '/api/v1/messages',
+          { to:'+123', message:'abc' },
+          function() {
+            // then
+            assert.deepEqual(mock_webapp.received,
+                [{ to:'+123', message:'abc' }]);
+
+            // when
+            request.post(TEST_URL_ROOT + '/api/v1/messages',
+                { to:'+456', message:'def' },
+                function() {
+                  // then
+                  assert.deepEqual(mock_webapp.received, [{ to:'+123', message:'abc' },
+                      { to:'+456', message:'def' }]);
+                  done();
+                }
+            );
+         }
+      );
     });
   });
 
@@ -334,13 +364,21 @@ describe('medic-webapp', function() {
   describe('mobile-terminating', function() {
     describe('successful delivery', function() {
       it('should be reported to medic-webapp', function(done) {
+        // when
+        adapter.deliver({ from:'+123', content:'hi' });
+
+        // then
+        assert.deepEqual(mock_webapp.received, [{ to:'+123', message:'hi' }]);
         TODO(done);
       });
       it('should occur once', function(done) {
         TODO(done);
       });
+      it('should report delivery status to supplied callback', function(done) {
+        TODO(done);
+      });
     });
-    describe('failed deliver', function() {
+    describe('failed delivery', function() {
       it('should be reported to medic-webapp', function(done) {
         TODO(done);
       });
@@ -348,6 +386,9 @@ describe('medic-webapp', function() {
         TODO(done);
       });
       it('should notify error handler if it still fails', function(done) {
+        TODO(done);
+      });
+      it('should report delivery status to supplied callback', function(done) {
         TODO(done);
       });
     });
