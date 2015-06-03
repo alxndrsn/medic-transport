@@ -363,13 +363,14 @@ describe('medic-webapp', function() {
   });
   describe('mobile-terminating', function() {
     describe('successful delivery', function() {
-      it('should be reported to medic-webapp', function(done) {
+      it('should be reported to medic-webapp', function() {
         // when
         adapter.deliver({ from:'+123', content:'hi' });
 
         // then
-        assert.deepEqual(mock_webapp.received, [{ to:'+123', message:'hi' }]);
-        TODO(done);
+        assert.equal(mock_webapp.received.length, 1);
+        assert.equal(mock_webapp.received[0].from, '+123');
+        assert.equal(mock_webapp.received[0].message, 'hi');
       });
       it('should occur once', function(done) {
         TODO(done);
