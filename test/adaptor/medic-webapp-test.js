@@ -25,7 +25,8 @@ describe('medic-webapp', function() {
       var self = this,
           behaviour = {},
           pending_message_queue = [],
-          ID_MATCHER = new RegExp(/\/([^\/]*)$/);
+          ID_MATCHER = new RegExp(/\/([^\/]*)$/),
+          fail_deliveries;
       self.state_updates = {};
       self.received = [];
 
@@ -34,6 +35,9 @@ describe('medic-webapp', function() {
       };
       self.push_pending_messages = function(messages) {
         pending_message_queue.push(messages);
+      };
+      self.fail_deliveries = function() {
+        fail_deliveries = true;
       };
 
       behaviour['GET ' + PENDING_URL] = function() {
@@ -47,7 +51,12 @@ describe('medic-webapp', function() {
         state_updates[id].push(state);
       };
       behaviour['POST ' + MESSAGES_URL] = function(url, body) {
-        self.received.push(body);
+        if(fail_deliveries) {
+          return { payload: { success:false } };
+        } else {
+          self.received.push(body);
+          return { payload: { success:true } };
+        }
       };
       mock_http.mock(behaviour);
 
@@ -167,25 +176,30 @@ describe('medic-webapp', function() {
       assert.deepEqual(mock_webapp.received, []);
 
       // when
-      request.post(TEST_URL_ROOT + '/api/v1/messages',
-          { to:'+123', message:'abc' },
-          function() {
-            // then
-            assert.deepEqual(mock_webapp.received,
-                [{ to:'+123', message:'abc' }]);
+      request.post(MESSAGES_URL, { to:'+123', message:'abc' }, function() {
+        // then
+        assert.deepEqual(mock_webapp.received,
+            [{ to:'+123', message:'abc' }]);
 
-            // when
-            request.post(TEST_URL_ROOT + '/api/v1/messages',
-                { to:'+456', message:'def' },
-                function() {
-                  // then
-                  assert.deepEqual(mock_webapp.received, [{ to:'+123', message:'abc' },
-                      { to:'+456', message:'def' }]);
-                  done();
-                }
-            );
-         }
-      );
+        // when
+        request.post(MESSAGES_URL, { to:'+456', message:'def' }, function() {
+          // then
+          assert.deepEqual(mock_webapp.received, [{ to:'+123', message:'abc' },
+              { to:'+456', message:'def' }]);
+          done();
+        });
+      });
+    });
+    it('should fail deliveries if told to', function(done) {
+      // given
+      mock_webapp.fail_deliveries();
+
+      // when
+      request.post(MESSAGES_URL, { to:'+123', message:'abc' }, function(err, resp, body) {
+        assert.notOk(err);
+        assert.deepEqual(JSON.parse(body), { payload: { success: false } });
+        done();
+      });
     });
   });
 
@@ -376,7 +390,12 @@ describe('medic-webapp', function() {
         TODO(done);
       });
       it('should report delivery status to supplied callback', function(done) {
-        TODO(done);
+        // when
+        adapter.deliver({ from:'+123', content:'hi' }, function(err, rx_result) {
+          assert.notOk(err);
+          assert.equal(rx_result.status, 'success');
+          done();
+        });
       });
     });
     describe('failed delivery', function() {
@@ -390,7 +409,15 @@ describe('medic-webapp', function() {
         TODO(done);
       });
       it('should report delivery status to supplied callback', function(done) {
-        TODO(done);
+        // given
+        mock_webapp.fail_deliveries();
+
+        // when
+        adapter.deliver({ from:'+123', content:'hi' }, function(err, rx_result) {
+          assert.notOk(err);
+          assert.equal(rx_result.status, 'failure');
+          done();
+        });
       });
     });
   });

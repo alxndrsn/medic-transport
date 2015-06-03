@@ -111,7 +111,7 @@ describe('mocker', function() {
     // when
     request.get('http://example.com/path');
   });
-  it('should provide support for POST requests', function(done) {
+  it('should provide support for POST requests wihtout a body', function(done) {
     // given
     mock_request.mock({
       'POST http://example.com/path': [{content:true}]
@@ -119,6 +119,24 @@ describe('mocker', function() {
 
     // when
     request.post('http://example.com/path', function(err, resp, body) {
+      // then
+      assert.equal(err, null);
+      if(AUTOJSON) {
+        assert.deepEqual(body, {content:true});
+      } else {
+        assert.equal(body, '{"content":true}');
+      }
+      done();
+    });
+  });
+  it('should provide support for POST requests with a body', function(done) {
+    // given
+    mock_request.mock({
+      'POST http://example.com/path': [{content:true}]
+    });
+
+    // when
+    request.post('http://example.com/path', { here:'body' }, function(err, resp, body) {
       // then
       assert.equal(err, null);
       if(AUTOJSON) {
