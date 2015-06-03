@@ -129,6 +129,24 @@ describe('mocker', function() {
       done();
     });
   });
+  it('should provide support for PUT requests', function(done) {
+    // given
+    mock_request.mock({
+      'PUT http://example.com/path': [{content:true}]
+    });
+
+    // when
+    request.put('http://example.com/path', function(err, resp, body) {
+      // then
+      assert.equal(err, null);
+      if(AUTOJSON) {
+        assert.deepEqual(body, {content:true});
+      } else {
+        assert.equal(body, '{"content":true}');
+      }
+      done();
+    });
+  });
   it('should not be confused between config for GET and POST', function(done) {
     // given
     mock_request.mock({
@@ -182,6 +200,57 @@ describe('mocker', function() {
     assert.equal(mock_request.handlers.GET['http://once'].count, 1);
     assert.equal(mock_request.handlers.GET['http://twice'].count, 2);
     assert.equal(mock_request.handlers.GET['http://thrice'].count, 3);
+  });
+  it('should support catch-all URLs', function() {
+    // given
+    mock_request.mock({
+      'GET http://something/or-other/specific':'specific',
+      'GET http://something/or-other/**':'catch-all' });
+
+    // when
+    request.get('http://something/or-other/specific', function(err, resp, body) {
+      // then
+      if(AUTOJSON) {
+        assert.equal(body, 'specific');
+      } else {
+        assert.equal(body, '"specific"');
+      }
+    });
+
+    // when
+    request.get('http://something/or-other/', function(err, resp, body) {
+      // then
+      if(AUTOJSON) {
+        assert.equal(body, 'catch-all');
+      } else {
+        assert.equal(body, '"catch-all"');
+      }
+    });
+
+    // when
+    request.get('http://something/or-other/random', function(err, resp, body) {
+      // then
+      if(AUTOJSON) {
+        assert.equal(body, 'catch-all');
+      } else {
+        assert.equal(body, '"catch-all"');
+      }
+    });
+
+    // when
+    request.get('http://something/or-other', function(err, resp, body) {
+      // then
+      if(AUTOJSON) {
+        assert.equal(body, 'catch-all');
+      } else {
+        assert.equal(body, '"catch-all"');
+      }
+    });
+
+    // when
+    request.get('http://something', function(err, resp, body) {
+      // then
+      assert.equal(err.toString(), 'Error: No mock found for GET at: http://something'); });
   });
 /*  it('should support requests made via `request()`', function(done) {
     // given

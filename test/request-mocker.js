@@ -2,11 +2,14 @@ var request = require('request'),
     _ = require('underscore'),
     sinon = require('sinon'),
     DEBUG = false,
-    AUTOJSON = false;
+    AUTOJSON = false,
+    SUPPORTED_VERBS = ['get', 'post', 'put'],
+    WILDCARD_MATCH = new RegExp(/.*\*\*$/);
 
 "use strict";
 exports.mock_request = (function() {
-  var handle_action = function(handler, url, options, callback) {
+  var self = this,
+  handle_action = function(handler, url, options, callback) {
     if(DEBUG) console.log('handle_action() :: url=' + url);
 
     var hit_count = handler.count++,
@@ -40,7 +43,6 @@ exports.mock_request = (function() {
     }
   },
   stubs_for = function(verbs) {
-    var self = this;
     _.each(verbs, function(verb) {
       var VERB = verb.toUpperCase();
       sinon.stub(request, verb, function(url, options, callback) {
@@ -76,6 +78,26 @@ exports.mock_request = (function() {
 
         var handler = self.handlers[VERB][url];
         if(!handler) {
+          // search for catch-all handler
+          _.each(_.keys(self.handlers[VERB]), function(matcher) {
+            if(WILDCARD_MATCH.test(matcher)) {
+              var without_stars = matcher.slice(0, -2);
+              if(without_stars === url.slice(0, without_stars.length)) {
+                handler = self.handlers[VERB][matcher];
+                return;
+              }
+
+              if(without_stars.slice(-1) !== '/') return;
+
+              var without_stars_and_slash = without_stars.slice(0, -1);
+              if(without_stars_and_slash === url) {
+                handler = self.handlers[VERB][matcher];
+                return;
+              }
+            }
+          });
+        }
+        if(!handler) {
           callback(new Error('No mock found for ' + VERB + ' at: ' + url));
           return;
         }
@@ -86,13 +108,14 @@ exports.mock_request = (function() {
   };
 
   this.restore = function() {
-    request.get.restore && request.get.restore();
-    request.post.restore && request.post.restore();
-    this.handlers = {};
+    self.handlers = {};
+    _.each(SUPPORTED_VERBS, function(verb) {
+      request[verb].restore && request[verb].restore();
+      self.handlers[verb.toUpperCase()] = {};
+    });
   };
   this.mock = function(behaviour) {
-    var self = this;
-    self.handlers = { GET:{}, POST:{} };
+    self.restore();
     _.mapObject(behaviour, function(resp, req) {
       if(DEBUG) console.log('Mapping: ' + req + ' -> ' + resp);
       var pieces = req.split(' ', 2),
@@ -104,7 +127,7 @@ exports.mock_request = (function() {
       if(DEBUG) console.log('  verb: ' + verb + ', url: ' + url);
       self.handlers[verb][url] = { count:0, actions:resp };
     });
-    stubs_for(['get', 'post']);
+    stubs_for(SUPPORTED_VERBS);
     // TODO need to stub the global `request()` method
   };
 
