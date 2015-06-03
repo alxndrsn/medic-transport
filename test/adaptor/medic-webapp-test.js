@@ -399,9 +399,6 @@ describe('medic-webapp', function() {
       });
     });
     describe('failed delivery', function() {
-      it('should be reported to medic-webapp', function(done) {
-        TODO(done);
-      });
       it('should be retried three times', function(done) {
         TODO(done);
       });
