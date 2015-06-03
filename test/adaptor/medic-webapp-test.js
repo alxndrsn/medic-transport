@@ -11,6 +11,8 @@ describe('medic-webapp', function() {
       TODO = function(done) { done(new Error('Not Yet Implemented')); },
       PENDING_PATH = '/api/v1/messages?state=pending',
       PENDING_URL = TEST_URL_ROOT + PENDING_PATH,
+      STATE_PATH = '/api/v1/messages/state/',
+      STATE_URL = TEST_URL_ROOT + STATE_PATH,
       register_noop_transmit_handler = function() {
         adapter.register_transmit_handler(function() {}); };
 
@@ -20,7 +22,9 @@ describe('medic-webapp', function() {
     mock_webapp = (function() {
       var self = this,
           behaviour = {},
-          pending_message_queue = [];
+          pending_message_queue = [],
+          ID_MATCHER = new RegExp(/\/([^\/]*)$/);
+      self.state_updates = {};
 
       self.poll_count = function() {
         return mock_http.handlers.GET[PENDING_URL].count;
@@ -32,6 +36,12 @@ describe('medic-webapp', function() {
       behaviour['GET ' + PENDING_URL] = function() {
         var next = pending_message_queue.shift() || [];
         return _.isArray(next) ? next : [next];
+      };
+      behaviour['PUT ' + STATE_URL + '**'] = function(url, req, body) {
+        var id = ID_MATCHER.exec(url)[1],
+            state = req.state;
+        state_updates[id] = state_updates[id] || [];
+        state_updates[id].push(state);
       };
       mock_http.mock(behaviour);
 
@@ -129,6 +139,24 @@ describe('medic-webapp', function() {
         });
       });
     });
+    it('should maintain a store of state updates', function() {
+      assert.deepEqual(mock_webapp.state_updates, {});
+    });
+    it('should log state updates', function(done) {
+      request.put(TEST_URL_ROOT + '/api/v1/messages/state/a-1',
+          { state:'pending', details:{} },
+          function() {
+            assert.deepEqual(mock_webapp.state_updates,
+                { 'a-1':['pending'] });
+            request.put(TEST_URL_ROOT + STATE_PATH + 'a-1',
+                { state:'failed', details:{} },
+                function() {
+                  assert.deepEqual(mock_webapp.state_updates,
+                      { 'a-1':['pending', 'failed'] });
+                  done();
+                });
+          });
+    });
   });
 
   describe('initialize', function() {
@@ -210,7 +238,7 @@ describe('medic-webapp', function() {
         // setup
         mock_webapp.push_pending_messages({ to:'+123', message:'hi' });
 
-        adapter.register_transmit_handler(function(message, tx_result) {
+        adapter.register_transmit_handler(function(message, callback) {
           // then
           assert.equal(message.to, '+123');
           assert.equal(message.content, 'hi');
@@ -227,20 +255,73 @@ describe('medic-webapp', function() {
     });
     describe('when ' + PENDING_PATH + ' provides messages', function() {
       it('should transmit all of them', function(done) {
-        TODO(done);
+        // setup
+        mock_webapp.push_pending_messages([
+            { to:'+123', message:'hi' },
+            { to:'+456', message:'ho' }]);
+
+        // then
+        var transmit_handler_calls = 0;
+        adapter.register_transmit_handler(function(message, callback) {
+          // then
+          ++transmit_handler_calls;
+          if(transmit_handler_calls == 1) {
+            assert.equal(message.to, '+123');
+            assert.equal(message.content, 'hi');
+          } else if(transmit_handler_calls == 2) {
+            assert.equal(message.to, '+456');
+            assert.equal(message.content, 'ho');
+            done();
+          }
+        });
+
+        // when
+        adapter.start();
       });
       it('should not stack overflow even with many messages', function(done) {
+        // TODO this potential bug may be why async.eachSeries is used instead
+        // of _.each?
         TODO(done);
       });
     });
     describe('when a message transmits successfully', function() {
       it('should update state with medic-webapp', function(done) {
-        TODO(done);
+        // setup
+        this.timeout(0);
+        mock_webapp.push_pending_messages({ uuid:'a-1', to:'+123', message:'hi' });
+        adapter.register_transmit_handler(function(message, callback) {
+          callback(null, { uuid:message.uuid, status:'success' });
+        });
+
+        // then
+        setTimeout(function() {
+          assert.deepEqual(mock_webapp.state_updates,
+              { 'a-1':['sent'] });
+          done();
+        }, 200);
+
+        // when
+        adapter.start();
       });
     });
     describe('when a message transmit fails', function() {
       it('should update state with medic-webapp', function(done) {
-        TODO(done);
+        // setup
+        this.timeout(0);
+        mock_webapp.push_pending_messages({ uuid:'a-1', to:'+123', message:'hi' });
+        adapter.register_transmit_handler(function(message, callback) {
+          callback(null, { uuid:message.uuid, status:'failure' });
+        });
+
+        // then
+        setTimeout(function() {
+          assert.deepEqual(mock_webapp.state_updates,
+              { 'a-1':['failed'] });
+          done();
+        }, 200);
+
+        // when
+        adapter.start();
       });
       it('should retry sending three times', function(done) {
         TODO(done);
