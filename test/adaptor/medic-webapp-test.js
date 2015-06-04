@@ -22,7 +22,7 @@ describe('medic-webapp', function() {
     adapter = adaptor.create('medic-webapp',
         {debug:true, pass:'secret', url:TEST_URL_ROOT, interval:100});
     mock_webapp = (function() {
-      var self = this,
+      var self = {},
           behaviour = {},
           pending_message_queue = [],
           ID_MATCHER = new RegExp(/\/([^\/]*)$/),
@@ -47,8 +47,8 @@ describe('medic-webapp', function() {
       behaviour['PUT ' + STATE_URL + '**'] = function(url, req, body) {
         var id = ID_MATCHER.exec(url)[1],
             state = req.state;
-        state_updates[id] = state_updates[id] || [];
-        state_updates[id].push(state);
+        self.state_updates[id] = self.state_updates[id] || [];
+        self.state_updates[id].push(state);
       };
       behaviour['POST ' + MESSAGES_URL] = function(url, body) {
         if(fail_deliveries) {

@@ -7,7 +7,7 @@ var request = require('request'),
     WILDCARD_MATCH = new RegExp(/.*\*\*$/);
 
 module.exports = (function() {
-  var self = this,
+  var self = {},
   handle_action = function(handler, url, options, callback) {
     if(DEBUG) console.log('handle_action() :: url=' + url);
 
@@ -106,14 +106,14 @@ module.exports = (function() {
     });
   };
 
-  this.restore = function() {
+  self.restore = function() {
     self.handlers = {};
     _.each(SUPPORTED_VERBS, function(verb) {
       request[verb].restore && request[verb].restore();
       self.handlers[verb.toUpperCase()] = {};
     });
   };
-  this.mock = function(behaviour) {
+  self.mock = function(behaviour) {
     self.restore();
     _.mapObject(behaviour, function(resp, req) {
       if(DEBUG) console.log('Mapping: ' + req + ' -> ' + resp);
@@ -130,6 +130,6 @@ module.exports = (function() {
     // TODO need to stub the global `request()` method
   };
 
-  return this;
+  return self;
 }());
 
