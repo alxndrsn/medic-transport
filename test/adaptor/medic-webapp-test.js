@@ -2,7 +2,7 @@ var chai = require('chai'),
     assert = chai.assert,
     adaptor = require('../../lib/adaptor.js'),
     request = require('request'),
-    mock_http = require('../request-mocker.js').mock_request,
+    mock_http = require('../request-mocker.js'),
     AUTOJSON = false;
 
 describe('medic-webapp', function() {
@@ -69,7 +69,7 @@ describe('medic-webapp', function() {
     mock_http.restore();
   });
 
-  describe('test setup', function() {
+  false && describe('test setup', function() {
     it('should provide mock_webapp implementation', function() {
       assert.ok(mock_webapp);
     });

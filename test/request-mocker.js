@@ -6,8 +6,7 @@ var request = require('request'),
     SUPPORTED_VERBS = ['get', 'post', 'put'],
     WILDCARD_MATCH = new RegExp(/.*\*\*$/);
 
-"use strict";
-exports.mock_request = (function() {
+module.exports = (function() {
   var self = this,
   handle_action = function(handler, url, options, callback) {
     if(DEBUG) console.log('handle_action() :: url=' + url);

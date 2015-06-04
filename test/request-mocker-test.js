@@ -2,7 +2,7 @@ var chai = require('chai'),
     assert = chai.assert,
     request = require('request'),
     sinon = require('sinon'),
-    mock_request = require('./request-mocker.js').mock_request,
+    mock_request = require('./request-mocker.js'),
     AUTOJSON = false;
 
 describe('mocker', function() {

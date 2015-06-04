@@ -3,7 +3,7 @@ var chai = require('chai'),
     sinon = require('sinon'),
     adaptor = require('../../lib/adaptor.js'),
     assert = chai.assert,
-    mock_http = require('../request-mocker.js').mock_request;
+    mock_http = require('../request-mocker.js');
 chai.config.includeStack = true;
 
 describe('medic-mobile', function() {
