@@ -7,13 +7,13 @@ var request = require('request'),
     WILDCARD_MATCH = new RegExp(/.*\*\*$/);
 
 module.exports = (function() {
+  "use strict";
   var self = {},
   handle_action = function(handler, url, options, callback) {
     if(DEBUG) console.log('handle_action() :: url=' + url);
 
     var hit_count = handler.count++,
-        actions = handler.actions,
-        response_body;
+        actions = handler.actions;
 
     if(_.isArray(handler.actions)) {
       if(hit_count < actions.length) {
@@ -24,6 +24,7 @@ module.exports = (function() {
     } else perform_action(actions, url, options, callback);
   },
   perform_action = function(action, url, options, callback) {
+    var response_body;
     if(typeof action === 'function') {
       if(action.length === 3) {
         action(url, options, callback);
