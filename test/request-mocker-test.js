@@ -92,11 +92,28 @@ describe('mocker', function() {
   it('should call functions listed as responses', function(done) {
     // given
     mock_request.mock({
-      'GET http://example.com/path': new function() { done(); }
+      'GET http://example.com/path': function() { done(); }
     });
 
     // when
     request.get('http://example.com/path', function() {});
+  });
+  it('should defer callbacking to functions which request it', function(done) {
+    // given
+    this.timeout(0);
+    mock_request.mock({
+      'GET http://example.com/path': function(url, options, callback) {
+        assert.ok(callback);
+        callback(1, 2, 3);
+      }
+    });
+
+    // when
+    request.get('http://example.com/path', function(a, b, c) {
+      assert.deepEqual([a, b, c], [1, 2, 3]);
+    });
+
+    setTimeout(done, 200);
   });
   it('should provide request details to function handlers', function(done) {
     // given
@@ -146,7 +163,6 @@ describe('mocker', function() {
       }
       done();
     });
-  });
   it('should provide support for PUT requests', function(done) {
     // given
     mock_request.mock({
@@ -155,6 +171,25 @@ describe('mocker', function() {
 
     // when
     request.put('http://example.com/path', function(err, resp, body) {
+      // then
+      assert.equal(err, null);
+      if(AUTOJSON) {
+        assert.deepEqual(body, {content:true});
+      } else {
+        assert.equal(body, '{"content":true}');
+      }
+      done();
+    });
+  });
+  });
+  it('should provide support for HEAD requests', function(done) {
+    // given
+    mock_request.mock({
+      'HEAD http://example.com/path': [{content:true}]
+    });
+
+    // when
+    request.head('http://example.com/path', function(err, resp, body) {
       // then
       assert.equal(err, null);
       if(AUTOJSON) {
