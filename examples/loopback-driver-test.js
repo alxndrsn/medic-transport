@@ -5,6 +5,10 @@ var args = process.argv.slice(2),
     error = function(message) { console.log('ERR | ' + message); },
     _ = require('underscore'),
     TEST_MESSAGES = [
+      /* GSM-7 single */ 'This is a simple test message.',
+      /* GSM-7 multi  */ 'This is a simple test message. This is only a test. Had this been an actual message, the authorities in your area (with cooperation from federal and state authorities) would have already read it for you.',
+      /* UCS-2 single */ 'This is a test message. الحروف عربية. ان شاء الله.',
+      /* UCS-2 multi  */ 'The portion before this contains only Latin characters. Nepali text follows this. हो'',
     ],
     received = [];
 
