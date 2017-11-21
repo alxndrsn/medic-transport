@@ -1,3 +1,7 @@
+# DEPRECATION WARNING
+
+This code is no longer in active use at Medic Mobile.
+
 medic-transport
 ===============
 
